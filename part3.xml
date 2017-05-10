@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites tests="12" failures="12" disabled="0" errors="0" timestamp="2017-05-10T17:29:50" time="3.499" name="AllTests">
+  <testsuite name="TestEnv_Any" tests="12" failures="12" disabled="0" errors="0" time="3.499">
+    <testcase name="TestTransfer_Connect_Send_Symmetric" status="run" time="0.002" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Connect_Send_EOF" status="run" time="0.001" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Connect_Recv_Symmetric" status="run" time="0.352" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Connect_Recv_EOF" status="run" time="1.238" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Connect_Recv_SmallBuffer1" status="run" time="0.279" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Connect_Recv_SmallBuffer2" status="run" time="0.4" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 64819" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 64819]]></failure>
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 53&#x0A;Expected: expect_size&#x0A;Which is: 64819" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 53
+Expected: expect_size
+Which is: 64819]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Send_Symmetric" status="run" time="0.002" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Send_EOF" status="run" time="0.001" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Recv_Symmetric" status="run" time="0.282" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Recv_EOF" status="run" time="0.281" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Recv_SmallBuffer1" status="run" time="0.276" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 131072" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 131072]]></failure>
+    </testcase>
+    <testcase name="TestTransfer_Accept_Recv_SmallBuffer2" status="run" time="0.385" classname="TestEnv_Any">
+      <failure message="testtransfer.cpp:156&#x0A;Value of: total_size&#x0A;  Actual: 0&#x0A;Expected: expect_size&#x0A;Which is: 64819" type=""><![CDATA[testtransfer.cpp:156
+Value of: total_size
+  Actual: 0
+Expected: expect_size
+Which is: 64819]]></failure>
+      <failure message="testtransfer.cpp:273&#x0A;Value of: total_size&#x0A;  Actual: 53&#x0A;Expected: expect_size&#x0A;Which is: 64819" type=""><![CDATA[testtransfer.cpp:273
+Value of: total_size
+  Actual: 53
+Expected: expect_size
+Which is: 64819]]></failure>
+    </testcase>
+  </testsuite>
+</testsuites>
