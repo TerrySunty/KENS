@@ -370,6 +370,18 @@ void TCPAssignment::syscall_read(UUID sysid, int pid, int fd, void * buf, size_t
 	}
 }
 
+void TCPAssignment::syscall_write(UUID sysid, int pid, int fd, void * buf, size_t count)
+{
+	if(this->fd_to_context.find(mp(pid, fd)) == this->fd_to_context.end())
+	{
+		this->returnSystemCall(sysid, -EBADF);
+	}
+	auto cont = this->fd_to_context[mp(pid, fd)];	
+
+
+
+}
+
 
 void TCPAssignment::systemCallback(UUID syscallUUID, int pid, const SystemCallParameter& param)
 {
@@ -812,18 +824,21 @@ void TCPAssignment::deleteReceived(MyTCPContext * cont, size_t count)
 	assert(count <= cont->recvend - cont->recvstart);
 	printf("deleteRcv with count %u\n", count);
 	unsigned int seq, datasz;
-	while(true)
+	for(int i=0;i<1024;i++)//while(true)
 	{
 		auto it = cont->received.begin(); if(it == cont->received.end()) break;
 		(*it)->readData(34+4, &seq, 4); seq = ntohl(seq) - cont->peer_base_seq;
 		datasz = (*it)->getSize() - 54;
+		printf("%d iter : packet with seq %u datasz %u list size %u\n", i, seq, datasz, cont->received.size()																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																																												);
 		if(seq + datasz <= cont->recvstart - cont->peer_base_seq + count)
 		{
+			printf("if with left %u right %u\n", seq + datasz, cont->recvstart - cont->peer_base_seq + count);
 			this->freePacket(*it);
 			cont->received.erase(it);
 		}
 		else if(seq < cont->recvstart - cont->peer_base_seq + count && cont->recvstart - cont->peer_base_seq + count < seq + datasz)
 		{
+			printf("elif with seq %u mid %u right %u\n", seq, cont->recvstart - cont->peer_base_seq + count ,seq+datasz);		
 			auto cut = this->cutFrontData(*it, cont->recvstart+count-cont->peer_base_seq - seq);
 			this->freePacket(*it);
 			cont->received.erase(it);
@@ -873,18 +888,20 @@ void MyTCPContext::moveReceivedData(void * buf, unsigned int count)
 	puts("move end");
 }
 
-Packet * TCPAssignment::cutFrontData(Packet * packet, size_t count)
+Packet * TCPAssignment::cutFrontData(Packet * packet, unsigned int count)
 {//packet의 data 부분을 앞쪽 count 크기만큼 잘라낸 새로운 패킷을 반환
-	unsigned int seq;
-	auto newpacket = this->allocatePacket(packet->getSize() - count);
-	uint8_t * temp = new uint8_t[packet->getSize() - count];
-	packet->readData(0, temp, 54);
-	packet->readData(34+4, &seq, 4); seq = ntohl(seq);
-	*(unsigned int *)(temp + 4) = htonl(seq + count);
+	printf("cutFrontData with packet size %u, count %u\n", packet->getSize(), count);
+	unsigned int seq; printf("allocating size with %lu %u %d\n", packet->getSize()-count,packet->getSize()-count,packet->getSize()-count);
+	auto newpacket = this->allocatePacket(packet->getSize() - count); puts("packet allocated");
+	uint8_t * temp = new uint8_t[packet->getSize() - count]; puts("alloc success");
+	packet->readData(0, temp, 54); puts("read 0");
+	packet->readData(34+4, &seq, 4); seq = ntohl(seq); puts("read 1");
+	*(unsigned int *)(temp + 34 + 4) = htonl(seq + count); puts("read 2");
 	//TODO : modify new packet's checksum
-	packet->readData(54 + count, temp + 54, packet->getSize() - 54 - count);
-	newpacket->writeData(0, temp, newpacket->getSize());
-	delete temp;
+	packet->readData(54 + count, temp + 54, packet->getSize() - 54 - count); puts("read 3");
+	newpacket->writeData(0, temp, newpacket->getSize()); puts("write done");
+	delete [] temp;
+	puts("cutFrontData end");
 	return newpacket;
 }
 

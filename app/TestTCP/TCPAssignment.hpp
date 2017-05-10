@@ -139,7 +139,7 @@ private:
 	MyTCPContext * findFromSynready(std::pair<unsigned int, unsigned short> key);	
 	MyTCPContext * findFromEstablished(std::tuple<unsigned int, unsigned short, unsigned int, unsigned short> key);
 	void deleteReceived(MyTCPContext * cont, size_t count);
-	Packet * cutFrontData(Packet * packet, size_t count);
+	Packet * cutFrontData(Packet * packet, unsigned int count);
 
 public:
 	TCPAssignment(Host* host);
