@@ -320,7 +320,6 @@ TEST_F(TestEnv_Any, TestTransfer_Connect_Send_Symmetric)
 
 	server.initialize();
 	client.initialize();
-
 	this->runTest();
 }
 
