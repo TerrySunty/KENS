@@ -60,7 +60,6 @@ void TCPAssignment::close_cleanup(UUID sysid, int pid, int fd, MyTCPContext * my
 	//actually never happens
 	if(mysock->fd == -1)
 	{
-		//puts("established, but no accepted");
 		auto welcsock = this->syn_ready[mp(mysock->ip, mysock->port)];
 		welcsock->established.erase(welcsock->established.find(mysock));
 		delete mysock;
@@ -114,24 +113,24 @@ void TCPAssignment::syscall_close(UUID sysid, int pid, int fd)
 		this->returnSystemCall(sysid, -EBADF);
 	}
 	auto nowsock = this->fd_to_context[mp(pid, fd)];
+	if(nowsock->isReadBlocked)
+	{
+		nowsock->isReadBlocked = false;
+		this->returnSystemCall(nowsock->sysid , -1);
+	}
 	switch(nowsock->status)
 	{
 		case SYNSENT:
 			nowsock->status = CLOSED;
-			puts("SYNSENT->CLOSED");
 			this->close_cleanup(sysid, pid, fd, nowsock);
 			return;	
 		case ESTAB:
-			printf("ESTAB->");
 		case SYNRCVD:
-			printf("SYNRCVD->");
-			puts("FIN_WAIT_1");
 			nowsock->status = FIN_WAIT_1;
 			nowsock->sysid = sysid;
 			sendFIN = true;
 			break;
 		case CLOSE_WAIT:
-			puts("CLOSE_WAIT->LAST_ACK");
 			nowsock->status = LAST_ACK;
 			nowsock->sysid = sysid;
 			sendFIN = true;
@@ -145,7 +144,7 @@ void TCPAssignment::syscall_close(UUID sysid, int pid, int fd)
 		auto finpacket = this->allocatePacket(34 + 20);
 		finpacket->writeData(14 + 12, &nowsock->ip, 4);
 		finpacket->writeData(14 + 16, &nowsock->peerip, 4);
-		nowsock->myack = nowsock->peerseq + 1;
+		nowsock->expectedAckForFin = nowsock->myseq + 1;
 		uint8_t tcp_seg[20];
 		this->fillTCPHeader(tcp_seg, nowsock->port, nowsock->peerport,
 								nowsock->myseq, nowsock->myack,
@@ -163,7 +162,6 @@ void TCPAssignment::syscall_close(UUID sysid, int pid, int fd)
 
 		nowsock->myseq++;
 	}
-	
 }
 
 void TCPAssignment::syscall_bind(UUID sysid, int pid, int fd, struct sockaddr * addr, socklen_t len)
@@ -283,7 +281,6 @@ void TCPAssignment::syscall_connect(UUID sysid, int pid, int fd, struct sockaddr
 	synpacket->writeData(34, tcp_seg, 20);
 	nowsock->sysid = sysid;
 	nowsock->status = SYNSENT;
-	puts("SYNSENT start");
 	nowsock->peerip = servip;
 	nowsock->peerport = serv_addr->sin_port;
 	this->srcdest_to_context[mt(nowsock->ip, nowsock->port, servip, serv_addr->sin_port)] = nowsock;
@@ -294,8 +291,9 @@ void TCPAssignment::syscall_connect(UUID sysid, int pid, int fd, struct sockaddr
 	pay->action = PAYLOAD_SYN_RETRANSMIT;
 	pay->sock = nowsock;
 	pay->packet = synpacket;
+	if(nowsock->synon) this->cancelTimer(nowsock->syntimer);
 	nowsock->syntimer = this->addTimer((void*)pay, RETRANS_TIMEOUT);
-
+	nowsock->synon = true;
 	nowsock->myseq++;
 }
 
@@ -367,26 +365,21 @@ void TCPAssignment::syscall_read(UUID sysid, int pid, int fd, void * buf, size_t
 		this->returnSystemCall(sysid, -EBADF);
 	}
 	auto cont = this->fd_to_context[mp(pid, fd)];	
-	//printf("read called with buf %p count %u\n", buf, count);
 	if(cont->getReadSize() > 0)
 	{
-		//puts("read handle immediately");
 		unsigned int datasz = cont->getReadSize();
 		if(count < datasz) datasz = count;
 		cont->moveReceivedData(buf, datasz);
 		cont->isReadBlocked = false;
 		this->deleteReceived(cont, datasz);
 		this->returnSystemCall(sysid, datasz);
-		return;
 	}
 	else
 	{
-		//puts("read handle blocked");
 		cont->isReadBlocked = true;
 		cont->sysid = sysid;
 		cont->arg_buf = buf;
 		cont->arg_cnt = count;
-		return;
 	}
 }
 
@@ -397,17 +390,13 @@ void TCPAssignment::syscall_write(UUID sysid, int pid, int fd, void * buf, size_
 		this->returnSystemCall(sysid, -EBADF);
 	}
 	auto cont = this->fd_to_context[mp(pid, fd)];
-	//printf("write called with count %lu getSentSize %u getWriteSize %u peerwinsz %u buf %p\n", count, cont->getSentSize(), cont->getWriteSize(), cont->peer_window_size, buf);
-	//TODO : consider blocking
 	if(cont->getWriteSize() > 0)
 	{	
 		unsigned int sendsz = std::min((unsigned int)count, cont->getWriteSize());
 		for(unsigned int start = 0; start < sendsz; start += MSS)
 		{
 			unsigned int end = std::min(start + MSS, sendsz);
-			//printf("start %u end %u\n", start, end);
 			//send packet with data [start, end)
-			//Packet * packet = MAKE_PACKET;
 			auto packet = this->allocatePacket(54 + end - start);
 			uint8_t * tcp_seg = new uint8_t[54 + end - start];
 			memset(tcp_seg, 0, sizeof(tcp_seg));
@@ -426,15 +415,12 @@ void TCPAssignment::syscall_write(UUID sysid, int pid, int fd, void * buf, size_
 			cont->myseq += end-start;
 			cont->expectedMaxAck = cont->myseq;
 			delete [] tcp_seg;
-			//puts("for end");
 		}
 		this->returnSystemCall(sysid, sendsz);
 		cont->isWriteBlocked = false;
-		//puts("return write");
 	}
 	else
 	{
-		//puts("write blocked");
 		cont->isWriteBlocked = true;
 		cont->sysid = sysid;
 		cont->arg_buf = buf;
@@ -518,25 +504,32 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 	packet->readData(34+0, tcp_seg, packet->getSize() - 34);
 	*(unsigned short *)(tcp_seg + 16) = 0;
 	chksum = ~NetworkUtil::tcp_sum(peerip, myip, tcp_seg, packet->getSize() - 34);
-	// //printf("1 offset %d packet size %d\n", dataoffset, packet->getSize());
 	if(chksum != peerchksum)
 	{
 		this->freePacket(packet);
 		return;
 	}
 	datasz = packet->getSize() - 54;
-	//printf("packet size %d syn %d ack %d fin %d datasz %u\n", packet->getSize(), syn, ack, fin, datasz);
-	//printf("seq %u ack %u myport %u peerport %u\n", peerseq, peerack, myport, peerport);
 	
 
 	if(syn == 1)//if(syn == 1 && ack == 0 && fin == 0)
 	{
 		welcsock = this->findFromSynready(mp(myip, myport));
+		for(auto it : welcsock->connecting)
+		{
+			if(it->ip == myip && it->port == myport && it->peerip == peerip && it->peerport == peerport)
+			{
+				welcsock = it;
+				break;
+			}
+		}
+		if(welcsock == 0) welcsock = this->findFromSrcdest(mt(myip, myport, peerip, peerport));
+		if(welcsock == 0) welcsock = this->findFromEstablished(mt(myip, myport, peerip, peerport));
 		if((welcsock == 0)
-		|| (welcsock->status != MYLISTEN && welcsock->status != SYNSENT)
 		|| (welcsock->status == MYLISTEN && welcsock->backlog <= (int)welcsock->connecting.size()))
 		{
 			//Ignore SYN
+			//printf("syn with exception, sock %p\n", welcsock);
 		}
 		else if(welcsock->status == MYLISTEN)
 		{
@@ -549,7 +542,6 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 			newsock->setIpPort(myip, myport, peerip, peerport);
 			newsock->isBound = true;
 			newsock->status = SYNRCVD;
-			puts("MYLISTEN->SYNRCVD");
 			welcsock->connecting.insert(newsock);
 			auto synackpacket = this->allocatePacket(34+20);
 			packet->readData(14+12, ipcopy, 4);
@@ -557,37 +549,58 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 			packet->readData(14+16, ipcopy, 4);
 			synackpacket->writeData(14+12, ipcopy, 4);
 			this->fillTCPHeader(tcp_seg, myport, peerport,
-								newsock->myseq, newsock->myack,
+								newsock->my_base_seq, newsock->myack,
 								true, true, false, 0);
 			chksum = ~NetworkUtil::tcp_sum(myip, peerip, tcp_seg, 20);
 			*(unsigned short *)(tcp_seg + 16) = htons(chksum);
 			synackpacket->writeData(34, tcp_seg, 20);
-			this->sendPacket("IPv4", synackpacket);
+			this->sendPacket("IPv4", this->clonePacket(synackpacket));
+			
+			TimerPayload * pay = new TimerPayload;
+			pay->action = PAYLOAD_SYN_RETRANSMIT;
+			pay->sock = newsock;
+			pay->packet = synackpacket;
+			
+			if(newsock->synon) this->cancelTimer(newsock->syntimer);
+			newsock->syntimer = this->addTimer((void*)pay, RETRANS_TIMEOUT);
+			newsock->synon = true;
+			newsock->synackon = true;
+			newsock->synackpacket = synackpacket;
 			newsock->myseq++;
 		}
-		else if(welcsock->status == SYNSENT)//actually not welcoming socket
-		{
-			welcsock->peer_base_seq = peerseq;
-			welcsock->recvstart = peerseq + 1;
-			welcsock->recvend = peerseq + 1;
-			//welcsock->setSeqAck(random(), peerseq+1, peerseq, peerack);
-			welcsock->setSeqAck(welcsock->myseq, peerseq+1, peerseq, peerack);
-			welcsock->setIpPort(myip, myport, peerip, peerport);
-			welcsock->status = SYNRCVD;
-			puts("SYNSENT->SYNRCVD");
-			auto ackpacket = this->allocatePacket(34+20);
-			packet->readData(14+12, ipcopy, 4);
-			ackpacket->writeData(14+16, ipcopy, 4);
-			packet->readData(14+16, ipcopy, 4);
-			ackpacket->writeData(14+12, ipcopy, 4);
-			this->fillTCPHeader(tcp_seg, myport, peerport,
-								welcsock->myseq, welcsock->myack,
-								false, true, false, 0);
-			chksum = ~NetworkUtil::tcp_sum(myip, peerip, tcp_seg, 20);
-			*(unsigned short *)(tcp_seg + 16) = htons(chksum);
-			ackpacket->writeData(34, tcp_seg, 20);
-			this->sendPacket("IPv4", ackpacket);
-			this->syn_ready.erase(this->syn_ready.find(mp(welcsock->ip, welcsock->port)));
+		else
+		{	
+			if(welcsock->synackon && welcsock->synon)
+			{
+				this->sendPacket("IPv4", this->clonePacket(welcsock->synackpacket));
+			}
+			else
+			{
+				if(welcsock->status == SYNSENT)//actually not welcoming socket
+				{
+					welcsock->peer_base_seq = peerseq;
+					welcsock->recvstart = peerseq + 1;
+					welcsock->recvend = peerseq + 1;
+					welcsock->setSeqAck(welcsock->myseq, peerseq+1, peerseq, peerack);
+					welcsock->setIpPort(myip, myport, peerip, peerport);
+					welcsock->status = SYNRCVD;
+				}
+				//previous ackForSyn lost, so peer re-sent syn
+				auto ackpacket = this->allocatePacket(34+20);
+				packet->readData(14+12, ipcopy, 4);
+				ackpacket->writeData(14+16, ipcopy, 4);
+				packet->readData(14+16, ipcopy, 4);
+				ackpacket->writeData(14+12, ipcopy, 4);
+				this->fillTCPHeader(tcp_seg, myport, peerport,
+									welcsock->my_base_seq + 1, welcsock->myack,
+									false, true, false, 0);
+				chksum = ~NetworkUtil::tcp_sum(myip, peerip, tcp_seg, 20);
+				*(unsigned short *)(tcp_seg + 16) = htons(chksum);
+				ackpacket->writeData(34, tcp_seg, 20);
+				this->sendPacket("IPv4", ackpacket);
+				if(welcsock->status == SYNSENT)
+					this->syn_ready.erase(this->syn_ready.find(mp(welcsock->ip, welcsock->port)));
+			}
 		}
 	}
 	if(ack)//else if(syn == 0 && ack == 1 && fin == 0)
@@ -597,6 +610,12 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 		if(nowsock == 0)
 		{
 			welcsock = this->findFromSynready(mp(myip, myport));
+			if(welcsock == 0)
+			{
+				//puts("what case this is");
+			}
+			else
+			{
 			//ACK for SYN
 			for(MyTCPContext * ptr : welcsock->connecting)
 			{
@@ -607,12 +626,12 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 			}
 			if(nowsock != 0)
 			{
+				if(nowsock->synon) this->cancelTimer(nowsock->syntimer);
+					nowsock->synon = false;
 			nowsock->peer_window_size = winsize;
 			nowsock->status = ESTAB;
-			puts("TO ESTAB");	
 			nowsock->peerack = nowsock->peermaxack = peerack;
-			this->cancelTimer(nowsock->syntimer);
-			//nowsock->myseq = peerack;
+			nowsock->synon = false;
 			welcsock->connecting.erase(welcsock->connecting.find(nowsock));
 			welcsock->established.insert(nowsock);
 			if(welcsock->isAcceptBlocked == true)
@@ -631,32 +650,41 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 				this->returnSystemCall(welcsock->sysid, newfd);
 			}
 			}
+			//else puts("what");
+			}
 		}
 		else
 		{
+			if(nowsock->synon) this->cancelTimer(nowsock->syntimer);
+				nowsock->synon = false;
 			nowsock->peer_window_size = winsize;
-			//TODO : should be removed?
-			nowsock->myseq = peerack;
 			nowsock->peerack = peerack;
 			if(nowsock->peermaxack == peerack) nowsock->dupcnt++;
-			else if(nowsock->peermaxack - nowsock->my_base_seq < peerack - nowsock->my_base_seq){
+			else if(nowsock->peermaxack - nowsock->my_base_seq < peerack - nowsock->my_base_seq
+			&& nowsock->expectedAckForFin != peerack){
 				nowsock->peermaxack = peerack;
 				nowsock->dupcnt = 0;
 				if(nowsock->isRetransTimerOn) this->cancelTimer(nowsock->retranstimer);
 				nowsock->isRetransTimerOn = false;
 				if(peerack != nowsock->expectedMaxAck)
 				{
-					//printf("got newMaxAck %u expect %u nextmyseq %u\n", nowsock->peermaxack - nowsock->my_base_seq, nowsock->expectedMaxAck - nowsock->my_base_seq, nowsock->myseq - nowsock->my_base_seq);
 					this->addRetransmitTimer(nowsock);
 				}
 				else{
-					//printf("got expectedMaxAck %u\n", nowsock->expectedMaxAck - nowsock->my_base_seq);
 				}
 			}
 			if(nowsock->dupcnt == 2)
 			{
 				nowsock->dupcnt = 0;
-				//TODO : FAST RETRANSMIT
+				for(auto it = nowsock->sent.begin(); it != nowsock->sent.end(); it++)
+				{
+					unsigned int seq, datasz = (*it)->getSize()-54;
+					(*it)->readData(34+4, &seq, 4); seq = ntohl(seq) - nowsock->my_base_seq;
+					this->sendPacket("IPv4", this->clonePacket(*it));
+				}
+				if(nowsock->isRetransTimerOn) this->cancelTimer(nowsock->retranstimer);
+				nowsock->isRetransTimerOn = false;
+				if(!nowsock->sent.empty()) this->addRetransmitTimer(nowsock);
 			}
 			this->deleteSent(nowsock);
 			if(nowsock->isWriteBlocked && nowsock->getWriteSize() > 0)
@@ -664,42 +692,44 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 				this->syscall_write(nowsock->sysid, nowsock->pid, 
 									nowsock->fd, nowsock->arg_buf, nowsock->arg_cnt);
 			}
-			switch(nowsock->status)
+			if(peerack == nowsock->expectedAckForFin)
 			{
-				case FIN_WAIT_1:
-					puts("FIN_WAIT_1->FIN_WAIT_2");
-					nowsock->status = FIN_WAIT_2;
-					this->cancelTimer(nowsock->fintimer);
-					break;
-				case CLOSING:
+				if(nowsock->isRetransTimerOn) this->cancelTimer(nowsock->retranstimer);
+					nowsock->isRetransTimerOn = false;
+				switch(nowsock->status)
 				{
-					puts("CLOSING->TIME_WAIT");
-					TimerPayload * payload = new TimerPayload;				
-					nowsock->status = TIME_WAIT;
-					payload->action = PAYLOAD_CLOSE;
-					payload->sock = nowsock;
-					this->cancelTimer(nowsock->fintimer);
-					nowsock->timer = this->addTimer((void *)payload, TIMEOUT);
+					case FIN_WAIT_1:
+						nowsock->status = FIN_WAIT_2;
+						this->cancelTimer(nowsock->fintimer);
+						break;
+					case CLOSING:
+					{
+						TimerPayload * payload = new TimerPayload;				
+						nowsock->status = TIME_WAIT;
+						payload->action = PAYLOAD_CLOSE;
+						payload->sock = nowsock;
+						this->cancelTimer(nowsock->fintimer);
+						nowsock->timer = this->addTimer((void *)payload, TIMEOUT);
+					}
+						break;
+					case LAST_ACK:
+						nowsock->status = CLOSED;
+						this->cancelTimer(nowsock->fintimer);
+						this->close_cleanup(nowsock->sysid, nowsock->pid, nowsock->fd, nowsock);
+						break;
+					default:
+						break;
 				}
-					break;
-				case LAST_ACK:
-					puts("LAST_ACK->CLOSED");
-					nowsock->status = CLOSED;
-					this->cancelTimer(nowsock->fintimer);
-					this->close_cleanup(nowsock->sysid, nowsock->pid, nowsock->fd, nowsock);
-					break;
-				case SYNRCVD:
-					puts("SYNRCVD->ESTAB");
-					nowsock->status = ESTAB;
-					nowsock->peermaxack = peerack;
-					this->cancelTimer(nowsock->syntimer);
-					this->returnSystemCall(nowsock->sysid, 0);//return for connect()
-					break;
-				default:
-					break;
+			}
+			else if(nowsock->status == SYNRCVD)
+			{
+				nowsock->status = ESTAB;
+				nowsock->peermaxack = peerack;
+				if(nowsock->synon) this->cancelTimer(nowsock->syntimer);
+				nowsock->synon = false;
+				this->returnSystemCall(nowsock->sysid, 0);//return for connect()
 			}
 		}
-		
 	}
 	if(fin)//else if(syn == 0 && ack == 0 && fin == 1)
 	{
@@ -709,28 +739,29 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 		{
 			nowsock->peer_window_size = winsize;
 			bool sendACK = false;
+			
+			if(peerseq == nowsock->myack)
+			{
 			if(nowsock->isReadBlocked)
 			{
 				nowsock->isReadBlocked = false;
 				this->returnSystemCall(nowsock->sysid , -1);
 			}
+			nowsock->myack++;
 			switch(nowsock->status)
 			{
 				case ESTAB:
 					nowsock->peerseq = peerseq;
 					nowsock->status = CLOSE_WAIT;
-					puts("ESTAB->CLOSE_WAIT");
 					sendACK = true;
 					break;
 				case FIN_WAIT_1:
 					nowsock->peerseq = peerseq;
 					nowsock->status = CLOSING;
-					puts("FIN_WAIT_1->CLOSING");
 					sendACK = true;
 					break;
 				case FIN_WAIT_2:
 				{
-					puts("FIN_WAIT_2->TIME_WAIT");
 					TimerPayload * payload = new TimerPayload;				
 					nowsock->peerseq = peerseq;
 					nowsock->status = TIME_WAIT;
@@ -740,18 +771,23 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 					sendACK = true;
 				}
 					break;
+				case CLOSE_WAIT:
+				case CLOSING:
+				case TIME_WAIT:
+					sendACK = true;
+					break;
 				default: break;
 			}
-			if(sendACK)
+			}
+			if(true)//if(sendACK)
 			{
 				auto ackpacket = this->allocatePacket(34+20);
 				packet->readData(14+12, ipcopy, 4);
 				ackpacket->writeData(14+16, ipcopy, 4);
 				packet->readData(14+16, ipcopy, 4);
 				ackpacket->writeData(14+12, ipcopy, 4);
-				nowsock->myack = nowsock->peerseq + 1;
 				this->fillTCPHeader(tcp_seg, myport, peerport,
-									nowsock->myseq, nowsock->myack,
+									nowsock->myseq, nowsock->myack, //nowsock->peerseq + 1,
 									false, true, false, 0);
 				chksum = ~NetworkUtil::tcp_sum(myip, peerip, tcp_seg, 20);
 				*(unsigned short *)(tcp_seg + 16) = htons(chksum);
@@ -763,22 +799,18 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 	if(datasz > 0)//received some data
 	{
 		nowsock = this->findFromSrcdest(mt(myip, myport, peerip, peerport));
-		//puts("***********data detected");
 		if(nowsock == 0) nowsock = this->findFromEstablished(mt(myip, myport, peerip, peerport));
 		if(nowsock != 0)
 		{
 			nowsock->peer_window_size = winsize;
 			if(nowsock->getReceivedSize() + packet->getSize() <= RECV_MAX_SIZE)
 			{
-				auto newpacket = this->allocatePacket(packet->getSize());
+				auto newpacket = this->clonePacket(packet);
 				char * temp = new char[packet->getSize()];
-				packet->readData(0, temp, packet->getSize());
-				newpacket->writeData(0, temp, packet->getSize());
 				delete temp;
 				nowsock->insertReceived(newpacket);
 				if(nowsock->isReadBlocked && nowsock->getReadSize() > 0)
 				{
-					//puts("read unblocking start");
 					unsigned int datasz = nowsock->getReadSize();
 					if (datasz > nowsock->arg_cnt) datasz = nowsock->arg_cnt;
 					nowsock->moveReceivedData(nowsock->arg_buf, datasz);
@@ -798,7 +830,6 @@ void TCPAssignment::packetArrived(std::string fromModule, Packet* packet)
 				*(unsigned short *)(tcp_seg + 16) = htons(chksum);
 				ackpacket->writeData(34, tcp_seg, 20);
 				this->sendPacket("IPv4", ackpacket);
-				//puts("***********sent ack for data");
 			}
 		}
 	}
@@ -819,12 +850,10 @@ void TCPAssignment::timerCallback(void* raw_payload)
 	}
 	else if(payload->action == PAYLOAD_DATA_RETRANSMIT)
 	{
-		//printf("RETRANSMIT with MYSEQ %u MAX_PEER_ACK %u sent size %u\n",payload->sock->myseq-payload->sock->my_base_seq, payload->sock->peermaxack-payload->sock->my_base_seq, payload->sock->sent.size());
 		for(auto it = payload->sock->sent.begin(); it != payload->sock->sent.end(); it++)
 		{
 			unsigned int seq, datasz = (*it)->getSize()-54;
 			(*it)->readData(34+4, &seq, 4); seq = ntohl(seq) - payload->sock->my_base_seq;
-			//printf("retransmit seq %u size %u\n", seq, datasz);
 			this->sendPacket("IPv4", this->clonePacket(*it));
 		}
 		payload->sock->isRetransTimerOn = false;
@@ -905,12 +934,14 @@ unsigned int MyTCPContext::getReadSize()
 
 unsigned int MyTCPContext::getWriteSize()
 {//write를 통해 보낼 수 있는 데이터 크기
-	// unsigned int ret = std::min(SEND_MAX_SIZE, (unsigned int)(this->peer_window_size));
-	// if (ret < this->getSentSize()) return 0;
-	unsigned int ret = this->peer_window_size;
+	unsigned int ret = 0;
+	if(this->getSentSize() < this->peer_window_size) ret = this->peer_window_size - this->getSentSize();
 	if(this->getSentSize() < SEND_MAX_SIZE)
-		ret = std::min(ret, SEND_MAX_SIZE - this->getSentSize());
-	else return ret - this->getSentSize();
+	{
+		if(ret > 0) ret = std::min(ret, SEND_MAX_SIZE - this->getSentSize());
+		else ret = SEND_MAX_SIZE - this->getSentSize();
+	}
+	return ret;
 }
 
 unsigned int MyTCPContext::getReceivedSize()
@@ -942,7 +973,6 @@ void MyTCPContext::insertSent(Packet * packet)
 		if(seq + datasz > pseq + pdatasz) break;
 	}
 	this->sent.insert(it, packet);
-	//printf("insertSent seq %u sz %u\n", pseq, pdatasz);
 }
 
 void MyTCPContext::insertReceived(Packet * packet)
@@ -969,21 +999,17 @@ void MyTCPContext::insertReceived(Packet * packet)
 		if(seq <= this->recvend - this->peer_base_seq) this->recvend = std::max(this->recvend - this->peer_base_seq, seq + datasz) + this->peer_base_seq;
 	}
 	this->myack = this->recvend;
-	//printf("[%u, %u)\n", this->recvstart - this->peer_base_seq, this->recvend - this->peer_base_seq);
 	int cnt = 0;
 	for(it = this->received.begin(); it!=this->received.end();it++)
 	{
 		(*it)->readData(34+4, &seq, 4); seq = ntohl(seq) - this->peer_base_seq;
 		datasz = (*it)->getSize() - 54;
-		//printf("%dth packet : [%u, %u)\n", cnt++, seq, seq+datasz);
 	}
-	//printf("ack %u\n", this->myack - this->peer_base_seq);
 
 }
 
 void TCPAssignment::deleteSent(MyTCPContext * cont)
 {//내가 보낸 패킷 중 상대방한테 ACK을 받은 것은 sent 리스트에서 삭제
-	//printf("delete sent start with size %u maxack %u\n", cont->sent.size(), cont->peermaxack - cont->my_base_seq);
 	unsigned int seq, datasz;
 	while(true)
 	{
@@ -994,33 +1020,27 @@ void TCPAssignment::deleteSent(MyTCPContext * cont)
 		{
 			this->freePacket(*it);
 			cont->sent.erase(it);
-			// cont->sent.remove(*it);
 		}
 		else break;
 	}
-	//printf("delete sent end with size %u\n", cont->sent.size());
 }
 
 void TCPAssignment::deleteReceived(MyTCPContext * cont, size_t count)
 {//내가 받은 패킷 중 count 만큼을 이번에 읽어서 다른 곳에 저장했으므로 received에서 연속된 count 만큼의 데이터를 가진 패킷들을 삭제
 	assert(count <= cont->recvend - cont->recvstart);
-	//printf("deleteRcv with count %u\n", count);
 	unsigned int seq, datasz;
 	while(true)
 	{
 		auto it = cont->received.begin(); if(it == cont->received.end()) break;
 		(*it)->readData(34+4, &seq, 4); seq = ntohl(seq) - cont->peer_base_seq;
 		datasz = (*it)->getSize() - 54;
-		// //printf("%d iter : packet with seq %u datasz %u list size %u\n", i, seq, datasz, cont->received.size());
 		if(seq + datasz <= cont->recvstart - cont->peer_base_seq + count)
 		{
-			//printf("if with left %u right %u\n", seq + datasz, cont->recvstart - cont->peer_base_seq + count);
 			this->freePacket(*it);
 			cont->received.erase(it);
 		}
 		else if(seq < cont->recvstart - cont->peer_base_seq + count && cont->recvstart - cont->peer_base_seq + count < seq + datasz)
 		{
-			//printf("elif with seq %u mid %u right %u\n", seq, cont->recvstart - cont->peer_base_seq + count ,seq+datasz);		
 			auto cut = this->cutFrontData(*it, cont->recvstart+count-cont->peer_base_seq - seq);
 			this->freePacket(*it);
 			cont->received.erase(it);
@@ -1033,16 +1053,13 @@ void TCPAssignment::deleteReceived(MyTCPContext * cont, size_t count)
 
 void MyTCPContext::moveReceivedData(void * buf, unsigned int count)
 {//received에 저장된 데이터들 중 앞쪽 count 크기를 buf에 순서대로 쓴다
-	//printf("move called with %p, %u\n", buf, count);
 	unsigned int seq, datasz;
 	unsigned char temp;
-	//printf("recv seg : [%u ~ %u)\n", this->recvstart - this->peer_base_seq, this->recvend - this->peer_base_seq);
 	for(auto it=this->received.begin(); it!=this->received.end(); it++)
 	{
 		(*it)->readData(34+4, &seq, 4); seq = ntohl(seq)- this->peer_base_seq;
 		datasz = (*it)->getSize() - 54;
 		//[recvstart, min(recvstart + count, seq + datasz))만큼을 count로 옮김
-		//printf("seq %u datasz %u\n", seq, datasz);
 		for(unsigned int num = seq; num < seq + datasz; num++)
 		{
 			if(num < this->recvstart - this->peer_base_seq) continue;
@@ -1051,23 +1068,20 @@ void MyTCPContext::moveReceivedData(void * buf, unsigned int count)
 			(*it)->readData(54+num-seq, ((char *)buf) + (num+this->peer_base_seq-this->recvstart), 1);
 		}
 	}
-	//puts("move end");
 }
 
 Packet * TCPAssignment::cutFrontData(Packet * packet, unsigned int count)
 {//packet의 data 부분을 앞쪽 count 크기만큼 잘라낸 새로운 패킷을 반환
-	//printf("cutFrontData with packet size %u, count %u\n", packet->getSize(), count);
-	unsigned int seq; //printf("allocating size with %lu %u %d\n", packet->getSize()-count,packet->getSize()-count,packet->getSize()-count);
-	auto newpacket = this->allocatePacket(packet->getSize() - count); //puts("packet allocated");
-	uint8_t * temp = new uint8_t[packet->getSize() - count]; //puts("alloc success");
+	unsigned int seq;
+	auto newpacket = this->allocatePacket(packet->getSize() - count);
+	uint8_t * temp = new uint8_t[packet->getSize() - count]; 
 	packet->readData(0, temp, 54); 
 	packet->readData(34+4, &seq, 4); seq = ntohl(seq); 
 	*(unsigned int *)(temp + 34 + 4) = htonl(seq + count);
-	//TODO : modify new packet's checksum
+	//new packet's checksum is not important; just for keeping data
 	packet->readData(54 + count, temp + 54, packet->getSize() - 54 - count); 
 	newpacket->writeData(0, temp, newpacket->getSize()); 
 	delete [] temp;
-	//puts("cutFrontData end");
 	return newpacket;
 }
 
@@ -1077,8 +1091,6 @@ void TCPAssignment::addRetransmitTimer(MyTCPContext * cont)
 	newpay->sock = cont;
 	cont->isRetransTimerOn = true;
 	newpay->action = PAYLOAD_DATA_RETRANSMIT;
-	// if(cont->packetTimer.count(packet)>0)
-		// this->cancelTimer(cont->packetTimer[packet]);
 	cont->retranstimer = this->addTimer((void *)newpay, RETRANS_TIMEOUT);
 
 }

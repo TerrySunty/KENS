@@ -1,76 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites tests="15" failures="2" disabled="0" errors="0" timestamp="2017-05-12T01:38:36" time="1.02" name="AllTests">
-  <testsuite name="TestEnv_Reliable" tests="2" failures="0" disabled="0" errors="0" time="0.069">
-    <testcase name="TestAccept_Backlog1" status="run" time="0.065" classname="TestEnv_Reliable" />
+<testsuites tests="15" failures="0" disabled="0" errors="0" timestamp="2017-05-13T20:46:43" time="0.208" name="AllTests">
+  <testsuite name="TestEnv_Reliable" tests="2" failures="0" disabled="0" errors="0" time="0.083">
+    <testcase name="TestAccept_Backlog1" status="run" time="0.078" classname="TestEnv_Reliable" />
     <testcase name="TestAccept_Backlog2" status="run" time="0.004" classname="TestEnv_Reliable" />
   </testsuite>
-  <testsuite name="TestEnv_Any" tests="13" failures="2" disabled="0" errors="0" time="0.951">
-    <testcase name="TestClose_Connect_CloseFirst" status="run" time="0.487" classname="TestEnv_Any">
-      <failure message="testclose.cpp:64&#x0A;Expected: (client_fd) &gt;= (0), actual: -1 vs 0" type=""><![CDATA[testclose.cpp:64
-Expected: (client_fd) >= (0), actual: -1 vs 0]]></failure>
-      <failure message="testclose.cpp:67&#x0A;Value of: 2&#x0A;Expected: client_addr.sin_family&#x0A;Which is: 0" type=""><![CDATA[testclose.cpp:67
-Value of: 2
-Expected: client_addr.sin_family
-Which is: 0]]></failure>
-      <failure message="testclose.cpp:72&#x0A;Value of: 0&#x0A;Expected: ret&#x0A;Which is: -1" type=""><![CDATA[testclose.cpp:72
-Value of: 0
-Expected: ret
-Which is: -1]]></failure>
-      <failure message="testclose.cpp:75&#x0A;Value of: temp_addr.sin_family&#x0A;  Actual: 36368&#x0A;Expected: addr.sin_family&#x0A;Which is: 2" type=""><![CDATA[testclose.cpp:75
-Value of: temp_addr.sin_family
-  Actual: 36368
-Expected: addr.sin_family
-Which is: 2]]></failure>
-      <failure message="testclose.cpp:76&#x0A;Value of: temp_addr.sin_port&#x0A;  Actual: 55537&#x0A;Expected: addr.sin_port&#x0A;Which is: 3879" type=""><![CDATA[testclose.cpp:76
-Value of: temp_addr.sin_port
-  Actual: 55537
-Expected: addr.sin_port
-Which is: 3879]]></failure>
-      <failure message="testclose.cpp:83&#x0A;Value of: 0&#x0A;Expected: ret&#x0A;Which is: -1" type=""><![CDATA[testclose.cpp:83
-Value of: 0
-Expected: ret
-Which is: -1]]></failure>
-      <failure message="testclose.cpp:86&#x0A;Expected: (sleep_time) &gt;= (0), actual: -3582076 vs 0" type=""><![CDATA[testclose.cpp:86
-Expected: (sleep_time) >= (0), actual: -3582076 vs 0]]></failure>
-    </testcase>
-    <testcase name="TestClose_Connect_CloseLater" status="run" time="0.429" classname="TestEnv_Any">
-      <failure message="testclose.cpp:64&#x0A;Expected: (client_fd) &gt;= (0), actual: -1 vs 0" type=""><![CDATA[testclose.cpp:64
-Expected: (client_fd) >= (0), actual: -1 vs 0]]></failure>
-      <failure message="testclose.cpp:67&#x0A;Value of: 2&#x0A;Expected: client_addr.sin_family&#x0A;Which is: 0" type=""><![CDATA[testclose.cpp:67
-Value of: 2
-Expected: client_addr.sin_family
-Which is: 0]]></failure>
-      <failure message="testclose.cpp:72&#x0A;Value of: 0&#x0A;Expected: ret&#x0A;Which is: -1" type=""><![CDATA[testclose.cpp:72
-Value of: 0
-Expected: ret
-Which is: -1]]></failure>
-      <failure message="testclose.cpp:75&#x0A;Value of: temp_addr.sin_family&#x0A;  Actual: 60944&#x0A;Expected: addr.sin_family&#x0A;Which is: 2" type=""><![CDATA[testclose.cpp:75
-Value of: temp_addr.sin_family
-  Actual: 60944
-Expected: addr.sin_family
-Which is: 2]]></failure>
-      <failure message="testclose.cpp:76&#x0A;Value of: temp_addr.sin_port&#x0A;  Actual: 54271&#x0A;Expected: addr.sin_port&#x0A;Which is: 3879" type=""><![CDATA[testclose.cpp:76
-Value of: temp_addr.sin_port
-  Actual: 54271
-Expected: addr.sin_port
-Which is: 3879]]></failure>
-      <failure message="testclose.cpp:83&#x0A;Value of: 0&#x0A;Expected: ret&#x0A;Which is: -1" type=""><![CDATA[testclose.cpp:83
-Value of: 0
-Expected: ret
-Which is: -1]]></failure>
-      <failure message="testclose.cpp:86&#x0A;Expected: (sleep_time) &gt;= (0), actual: -3592076 vs 0" type=""><![CDATA[testclose.cpp:86
-Expected: (sleep_time) >= (0), actual: -3592076 vs 0]]></failure>
-    </testcase>
+  <testsuite name="TestEnv_Any" tests="13" failures="0" disabled="0" errors="0" time="0.125">
+    <testcase name="TestClose_Connect_CloseFirst" status="run" time="0.006" classname="TestEnv_Any" />
+    <testcase name="TestClose_Connect_CloseLater" status="run" time="0.007" classname="TestEnv_Any" />
     <testcase name="TestClose_Connect_CloseSimultaneous" status="run" time="0.001" classname="TestEnv_Any" />
-    <testcase name="TestClose_Accept_CloseLater" status="run" time="0.002" classname="TestEnv_Any" />
-    <testcase name="TestClose_Accept_CloseFirst" status="run" time="0.002" classname="TestEnv_Any" />
-    <testcase name="TestClose_Accept_CloseSimultaneous" status="run" time="0.002" classname="TestEnv_Any" />
-    <testcase name="TestAccept_BeforeAccept" status="run" time="0.002" classname="TestEnv_Any" />
+    <testcase name="TestClose_Accept_CloseLater" status="run" time="0.001" classname="TestEnv_Any" />
+    <testcase name="TestClose_Accept_CloseFirst" status="run" time="0.007" classname="TestEnv_Any" />
+    <testcase name="TestClose_Accept_CloseSimultaneous" status="run" time="0.021" classname="TestEnv_Any" />
+    <testcase name="TestAccept_BeforeAccept" status="run" time="0.004" classname="TestEnv_Any" />
     <testcase name="TestAccept_AfterAccept" status="run" time="0.002" classname="TestEnv_Any" />
     <testcase name="TestAccept_MultipleInterface1" status="run" time="0.009" classname="TestEnv_Any" />
-    <testcase name="TestAccept_MultipleInterface2" status="run" time="0.005" classname="TestEnv_Any" />
-    <testcase name="TestConnect_BeforeAccept" status="run" time="0.005" classname="TestEnv_Any" />
-    <testcase name="TestConnect_AfterAccept" status="run" time="0.002" classname="TestEnv_Any" />
-    <testcase name="TestConnect_SimultaneousConnect" status="run" time="0.003" classname="TestEnv_Any" />
+    <testcase name="TestAccept_MultipleInterface2" status="run" time="0.041" classname="TestEnv_Any" />
+    <testcase name="TestConnect_BeforeAccept" status="run" time="0.011" classname="TestEnv_Any" />
+    <testcase name="TestConnect_AfterAccept" status="run" time="0.004" classname="TestEnv_Any" />
+    <testcase name="TestConnect_SimultaneousConnect" status="run" time="0.01" classname="TestEnv_Any" />
   </testsuite>
 </testsuites>

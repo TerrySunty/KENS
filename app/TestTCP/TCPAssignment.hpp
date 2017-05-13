@@ -65,8 +65,8 @@ class MyTCPContext
 	unsigned int myseq, myack, peerseq, peerack;
 	//내가 이번에 보낼 myseqnum, myacknum
 	//내가 마지막으로 받은 peerseqnum, peeracknum
-	unsigned int mymaxack, peermaxack;
-	//내가 보낸 / 받은 ack중 가장 큰 것
+	unsigned int peermaxack;
+	//내가 받은 ack중 가장 큰 것
 	size_t arg_cnt;
 	void * arg_buf;
 	struct sockaddr_in * clntaddr;
@@ -76,18 +76,20 @@ class MyTCPContext
 	//sent의 경우 보낸 데이터의 끝부분이 더 큰게 더 뒤쪽에 있게
 	std::list<Packet *> received;
 	std::list<Packet *> sent;
-	std::map<Packet *, UUID> packetTimer;
-	//해당 패킷의 재전송을 위해 사용되는 타이머 아이디
 
 	unsigned short peer_window_size;
+	unsigned int expectedAckForFin;
 	unsigned int peer_base_seq, my_base_seq, expectedMaxAck;
 	unsigned int recvstart, recvend;
 	unsigned int dupcnt;
 	unsigned int fincnt;
+	bool synon, synackon;
+	Packet * synackpacket;
 	//[recvstart, recvend)가 현재 received 안에서 순서가 맞고, recvstart-1은 read 된 데이터 구간.
 
 	MyTCPContext()
 	{
+		synon = synackon = false;
 		this->fd = this->pid = -1;
 		ip = port = 0;
 		peerip = peerport = 0;
